@@ -1,0 +1,217 @@
+[build-system]
+requires = ["setuptools>=69.0,<70", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "luckyd-code"
+version = "2.0.0"
+description = "AI-powered coding agent with multi-LLM support, memory graph, and VS Code integration"
+readme = "README.md"
+license = {text = "Proprietary"}
+requires-python = ">=3.10,<3.13"
+authors = [
+    {name = "LuckyD", email = "dev@luckyd.ai"},
+]
+keywords = ["ai", "coding", "agent", "deepseek", "autonomous", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Natural Language :: English",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Artificial Intelligence",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+    "httpx>=0.27,<1.0",
+    "rich>=13.7,<14.0",
+    "pydantic>=2.5,<3.0",
+    "python-dotenv>=1.0,<2.0",
+    "typing-extensions>=4.9,<5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/luckyd/coding-agent"
+Repository = "https://github.com/luckyd/coding-agent"
+Changelog = "https://github.com/luckyd/coding-agent/blob/main/CHANGELOG.md"
+Documentation = "https://luckyd.github.io/coding-agent/"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<1.0",
+    "pytest-cov>=5.0,<6.0",
+    "pytest-xdist>=3.5,<4.0",
+    "ruff>=0.4,<1.0",
+    "black>=24.0,<25.0",
+    "mypy>=1.8,<2.0",
+    "pre-commit>=3.6,<4.0",
+    "mkdocs>=1.5,<2.0",
+    "mkdocs-material>=9.5,<10.0",
+    "mkdocstrings>=0.24,<1.0",
+    "pydocstyle>=6.3,<7.0",
+    "bandit>=1.7,<2.0",
+    "safety>=3.0,<4.0",
+    "vulture>=2.10,<3.0",
+]
+onnx = [
+    "onnxruntime>=1.17,<2.0",
+    "sentence-transformers>=2.5,<3.0",
+]
+browser = [
+    "playwright>=1.42,<2.0",
+    "pillow>=10.0,<11.0",
+]
+all = [
+    "luckyd-code[dev,onnx,browser]",
+]
+
+[tool.setuptools.packages.find]
+include = [
+    "luckyd_code*",
+    "tools*",
+    "llm*",
+    "memory*",
+    "project*",
+    "features*",
+]
+exclude = ["tests*", "docs*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.md", "*.html", "*.json", "*.bat", "*.ps1"]
+
+# ── Ruff: Fast Python linter ─────────────────────────────────────────
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+indent-width = 4
+exclude = [
+    ".git",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "*.egg-info",
+    ".luckyd-*",
+    "graphify-out",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "T20",  # flake8-print
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E402",   # module-import-not-at-top-of-file (needed for path setup)
+    "T201",   # print (allowed in CLI app)
+    "RUF012", # mutable class defaults
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+# ── Black: Code formatter ────────────────────────────────────────────
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.__pycache__
+  | \.venv
+  | venv
+  | build
+  | dist
+)/
+'''
+
+# ── Mypy: Static type checking ───────────────────────────────────────
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_unimported = false
+disallow_subclassing_any = false
+ignore_missing_imports = true
+no_implicit_reexport = true
+exclude = [
+    "node_modules",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "__pycache__",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "httpx",
+    "rich.*",
+    "pydantic",
+    "dotenv",
+]
+ignore_missing_imports = true
+
+# ── pytest ────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*", "async_test_*"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "network: marks tests that require network access",
+    "llm: marks tests that call an LLM API (costly)",
+]
+
+[tool.coverage.run]
+source = ["core", "tools", "llm", "memory", "project", "features"]
+omit = ["*/tests/*", "*/__pycache__/*"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise SystemExit",
+    "if TYPE_CHECKING:",
+]
+
+# ── Bandit: Security linter ──────────────────────────────────────────
+[tool.bandit]
+exclude_dirs = ["tests", "venv", ".venv", "__pycache__", "node_modules"]
+skips = ["B101", "B311", "B403", "B404", "B603", "B607"]
+
+# ── Vulture: Dead code finder ────────────────────────────────────────
+[tool.vulture]
+exclude = ["tests/*", "venv/*", ".venv/*", "__pycache__/*"]

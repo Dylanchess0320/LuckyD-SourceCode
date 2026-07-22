@@ -1,0 +1,76 @@
+# ── Python ─────────────────────────────────────────────────────────────
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.report.json
+
+# ── Virtual Environments ──────────────────────────────────────────────
+.venv/
+venv/
+env/
+.venv_*/
+
+# ── IDE / Editor ──────────────────────────────────────────────────────
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Environment & Secrets ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.cert
+credentials.json
+service-account.json
+
+# ── LuckyD Code Specific ──────────────────────────────────────────────
+.luckyd_history
+.luckyd-code/
+graphify-out/
+data/
+.model_cache.json
+bandit-report.json
+scripts/_patch_*.py
+
+# ── Docker ─────────────────────────────────────────────────────────────
+.docker/
+docker-compose.override.yml
+
+# ── Documentation ──────────────────────────────────────────────────────
+site/
+
+# ── Logs ──────────────────────────────────────────────────────────────
+*.log
+logs/
+log/
+
+# ── OS Files ───────────────────────────────────────────────────────────
+*.dylib
+*.dll
+*.so
+
+# ── Scratch / Local Build Artifacts ─────────────────────────────────────
+/_*.py
+/_diag_*.txt
+nul
+/*.exe
+installers/

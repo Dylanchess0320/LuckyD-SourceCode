@@ -1,0 +1,84 @@
+{
+  "name": "luckyd-code",
+  "displayName": "LuckyD Code Agent",
+  "description": "AI coding agent powered by DeepSeek — multi-agent swarms, LSP analysis, and autonomous coding",
+  "version": "1.0.0",
+  "publisher": "luckyd",
+  "license": "Apache-2.0",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Chat",
+    "Programming Languages",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "ai",
+    "coding",
+    "agent",
+    "deepseek",
+    "autonomous"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "luckyd-code.openChat",
+        "title": "LuckyD Code: Open Agent Chat"
+      },
+      {
+        "command": "luckyd-code.fixThis",
+        "title": "LuckyD Code: Fix This"
+      },
+      {
+        "command": "luckyd-code.explainThis",
+        "title": "LuckyD Code: Explain This"
+      },
+      {
+        "command": "luckyd-code.generateTests",
+        "title": "LuckyD Code: Generate Tests"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "luckyd-code.openChat",
+        "key": "ctrl+shift+l",
+        "mac": "cmd+shift+l"
+      },
+      {
+        "command": "luckyd-code.fixThis",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f"
+      }
+    ],
+    "configuration": {
+      "title": "LuckyD Code",
+      "properties": {
+        "luckyd-code.pythonCommand": {
+          "type": "string",
+          "default": "python",
+          "description": "Python command to run the agent"
+        },
+        "luckyd-code.agentPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the coding-agent directory (leave empty to auto-detect)"
+        },
+        "luckyd-code.model": {
+          "type": "string",
+          "default": "auto",
+          "enum": ["auto", "deepseek-chat", "deepseek-reasoner", "gemini-2.5-flash", "gpt-4o"],
+          "description": "Model to use for agent requests"
+        },
+        "luckyd-code.thinking": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable thinking/reasoning mode"
+        }
+      }
+    }
+  }
+}

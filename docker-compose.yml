@@ -1,0 +1,86 @@
+# ── Docker Compose for LuckyD Code ─────────────────────────────────────
+# Usage:
+#   docker compose build     Build the image
+#   docker compose run app   Run in REPL mode
+#   docker compose up -d     Run as daemon (query mode)
+#
+# Environment variables are read from .env file automatically.
+
+services:
+  # ── Main Agent ──────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: luckyd-code:latest
+    container_name: luckyd-code
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - CODING_AGENT_HOME=/workspace
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount current directory as workspace
+      - .:/workspace:cached
+      # Named volume for persistent memory store
+      - memory_data:/workspace/memory_store
+      # Named volume for tasks
+      - tasks_data:/workspace/tasks
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+    networks:
+      - agent_net
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── Ollama (optional: local LLM) ────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: luckyd-ollama
+    profiles: ["local-llm"]
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - agent_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # ── Redis (optional: caching / session store) ──────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: luckyd-redis
+    profiles: ["cache"]
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - agent_net
+    command: redis-server --appendonly yes --save 60 1
+
+networks:
+  agent_net:
+    driver: bridge
+
+volumes:
+  memory_data:
+  tasks_data:
+  ollama_data:
+  redis_data:
