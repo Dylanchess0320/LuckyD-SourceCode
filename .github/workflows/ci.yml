@@ -109,15 +109,15 @@ jobs:
       - name: Run Tests
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: |
-          pytest -v \
-            --cov=tools \
-            --cov=llm \
-            --cov=memory \
-            --cov=project \
-            --cov-report=xml \
-            --cov-report=term \
-            -m "not llm and not slow"
+        run: >
+          pytest -v
+          --cov=tools
+          --cov=llm
+          --cov=memory
+          --cov=project
+          --cov-report=xml
+          --cov-report=term
+          -m "not llm and not slow"
 
       - name: Upload Coverage
         uses: codecov/codecov-action@v4
