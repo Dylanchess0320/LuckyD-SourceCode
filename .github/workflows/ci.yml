@@ -107,8 +107,10 @@ jobs:
           pip install -e .
 
       - name: Run Tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          PYTHONPATH="${{ github.workspace }}" pytest -v \
+          pytest -v \
             --cov=tools \
             --cov=llm \
             --cov=memory \
