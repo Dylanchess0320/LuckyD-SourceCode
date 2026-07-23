@@ -123,9 +123,14 @@ def register_mcp_tools(manager: MCPManager) -> int:
     import asyncio
 
     try:
-        loop = asyncio.new_event_loop()
-        tools_by_server = loop.run_until_complete(manager.discover_tools())
-        loop.close()
+        # Use the running loop if available, otherwise create one
+        try:
+            loop = asyncio.get_running_loop()
+            tools_by_server = loop.run_until_complete(manager.discover_tools())
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            tools_by_server = loop.run_until_complete(manager.discover_tools())
+            loop.close()
     except Exception:
         return 0
 

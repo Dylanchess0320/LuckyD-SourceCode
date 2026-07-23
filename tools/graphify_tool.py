@@ -53,6 +53,7 @@ class GraphifyTool(ToolBase):
         "info (graph stats)."
     )
     aliases = ["Graph", "DepGraph", "CodeGraph"]
+    timeout_sec = 65.0
     parameters = {
         "subcommand": {
             "type": "string",

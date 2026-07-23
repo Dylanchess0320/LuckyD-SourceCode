@@ -65,6 +65,7 @@ class BrowserUseTool(ToolBase):
         "Returns a summary of what was done and any extracted data."
     )
     aliases = ["WebAgent", "WebTask", "BrowseWithAI"]
+    timeout_sec = 150.0
     parameters = {
         "task": {
             "type": "string",

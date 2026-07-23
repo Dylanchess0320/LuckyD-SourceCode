@@ -6,6 +6,7 @@ Like Claude Computer Use but for your actual desktop.
 from __future__ import annotations
 
 import time
+import asyncio
 from pathlib import Path
 
 from .base import ToolBase, ToolOutput
@@ -27,28 +28,26 @@ class DesktopScreenshotTool(ToolBase):
         },
     }
 
-    def execute(self, path: str = "", region: str = "full") -> ToolOutput:
+    async def execute(self, path: str = "", region: str = "full") -> ToolOutput:
         try:
             import mss
 
             if not path:
                 path = f"desktop_{int(time.time())}.png"
 
-            with mss.mss() as sct:
-                if region == "full":
-                    sct.shot(output=path)
-                else:
-                    parts = [int(x.strip()) for x in region.split(",")]
-                    if len(parts) == 4:
-                        monitor = {
-                            "top": parts[1],
-                            "left": parts[0],
-                            "width": parts[2],
-                            "height": parts[3],
-                        }
-                        sct.shot(output=path, region=monitor)
+            def _capture(p, r):
+                import mss
+                with mss.mss() as sct:
+                    if r == "full":
+                        sct.shot(output=p)
                     else:
-                        return ToolOutput(text="Region must be 'x,y,w,h' or 'full'", error=True)
+                        pts = [int(x.strip()) for x in r.split(",")]
+                        if len(pts) == 4:
+                            mon = {"top": pts[1], "left": pts[0], "width": pts[2], "height": pts[3]}
+                            sct.shot(output=p, region=mon)
+                        else:
+                            raise ValueError("Region must be x,y,w,h or full")
+            await asyncio.to_thread(_capture, path, region)
 
             size = Path(path).stat().st_size
             return ToolOutput(
@@ -79,7 +78,7 @@ class DesktopMouseTool(ToolBase):
         },
     }
 
-    def execute(
+    async def execute(
         self,
         action: str,
         x: int = 0,
@@ -94,7 +93,7 @@ class DesktopMouseTool(ToolBase):
             pyautogui.FAILSAFE = True
 
             if action == "move":
-                pyautogui.moveTo(x, y, duration=duration)
+                await asyncio.to_thread(pyautogui.moveTo, x, y, duration=duration)
                 return ToolOutput(text=f"Mouse moved to ({x}, {y})", title="Mouse Move")
             elif action == "click":
                 pyautogui.click(x, y, duration=duration)
@@ -106,13 +105,13 @@ class DesktopMouseTool(ToolBase):
                 pyautogui.rightClick(x, y, duration=duration)
                 return ToolOutput(text=f"Right-clicked at ({x}, {y})", title="Mouse RightClick")
             elif action == "mousedown":
-                pyautogui.mouseDown(x, y)
+                await asyncio.to_thread(pyautogui.mouseDown, x, y)
                 return ToolOutput(text=f"Mouse down at ({x}, {y})", title="Mouse Down")
             elif action == "mouseup":
-                pyautogui.mouseUp(x, y)
+                await asyncio.to_thread(pyautogui.mouseUp, x, y)
                 return ToolOutput(text=f"Mouse up at ({x}, {y})", title="Mouse Up")
             elif action == "drag":
-                pyautogui.moveTo(x, y, duration=duration)
+                await asyncio.to_thread(pyautogui.moveTo, x, y, duration=duration)
                 pyautogui.drag(to_x - x, to_y - y, duration=duration)
                 return ToolOutput(
                     text=f"Dragged from ({x},{y}) to ({to_x},{to_y})", title="Mouse Drag"
@@ -136,7 +135,7 @@ class DesktopKeyboardTool(ToolBase):
         "interval": {"type": "number", "description": "Seconds between keystrokes (default: 0.05)"},
     }
 
-    def execute(self, action: str, text: str = "", interval: float = 0.05) -> ToolOutput:
+    async def execute(self, action: str, text: str = "", interval: float = 0.05) -> ToolOutput:
         try:
             import pyautogui
 
@@ -145,7 +144,7 @@ class DesktopKeyboardTool(ToolBase):
                 preview = text[:50] + ("..." if len(text) > 50 else "")
                 return ToolOutput(text=f"Typed: '{preview}'", title="Keyboard Type")
             elif action == "press":
-                pyautogui.press(text)
+                await asyncio.to_thread(pyautogui.press(text))
                 return ToolOutput(text=f"Pressed: {text}", title="Key Press")
             elif action == "hotkey":
                 keys = [k.strip() for k in text.split("+")]
@@ -172,12 +171,12 @@ class DesktopPositionTool(ToolBase):
         },
     }
 
-    def execute(self, query: str = "position", image_path: str = "") -> ToolOutput:
+    async def execute(self, query: str = "position", image_path: str = "") -> ToolOutput:
         try:
             import pyautogui
 
             if query == "position":
-                x, y = pyautogui.position()
+                x, y = await asyncio.to_thread(pyautogui.position)
                 return ToolOutput(
                     text=f"Mouse position: ({x}, {y})",
                     title="Mouse Position",
@@ -229,7 +228,7 @@ class DesktopWindowTool(ToolBase):
         "title": {"type": "string", "description": "Window title to match (partial match)"},
     }
 
-    def execute(self, action: str = "list", title: str = "") -> ToolOutput:
+    async def execute(self, action: str = "list", title: str = "") -> ToolOutput:
         try:
             import pygetwindow as gw
 
@@ -296,18 +295,18 @@ class DesktopClipboardTool(ToolBase):
         "text": {"type": "string", "description": "Text to write to clipboard (for action=write)"},
     }
 
-    def execute(self, action: str = "read", text: str = "") -> ToolOutput:
+    async def execute(self, action: str = "read", text: str = "") -> ToolOutput:
         try:
             import pyperclip
 
             if action == "read":
-                content = pyperclip.paste()
+                content = await asyncio.to_thread(pyperclip.paste)
                 return ToolOutput(
                     text=content[:4000] if content else "(clipboard empty)",
                     title="Clipboard",
                 )
             elif action == "write":
-                pyperclip.copy(text)
+                await asyncio.to_thread(pyperclip.copy, text)
                 return ToolOutput(
                     text=f"Written to clipboard ({len(text)} chars)", title="Clipboard Written"
                 )

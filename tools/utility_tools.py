@@ -161,19 +161,34 @@ class ProcessTool(ToolBase):
                 if process_id not in _processes:
                     return ToolOutput(text=f"Process not found: {process_id}", error=True)
                 proc = _processes[process_id]
-                # Non-blocking read
-                import select
+                # Non-blocking read via thread (cross-platform)
+                def _collect_output(p):
+                    collected = []
+                    if p.stdout:
+                        try:
+                            import select
+                            while True:
+                                r, _, _ = select.select([p.stdout], [], [], 0.1)
+                                if not r:
+                                    break
+                                line = p.stdout.readline()
+                                if not line:
+                                    break
+                                collected.append(line)
+                        except OSError:
+                            # Windows: select only works on sockets
+                            import time
+                            deadline = time.time() + 2.0
+                            while time.time() < deadline:
+                                line = p.stdout.readline()
+                                if not line:
+                                    break
+                                collected.append(line)
+                    return collected
 
-                if proc.stdout:
-                    while True:
-                        ready, _, _ = select.select([proc.stdout], [], [], 0.1)
-                        if not ready:
-                            break
-                        line = proc.stdout.readline()
-                        if not line:
-                            break
-                        if process_id in _process_outputs:
-                            _process_outputs[process_id].append(line)
+                new_lines = await asyncio.to_thread(_collect_output, proc)
+                for line in new_lines:
+                    _process_outputs.setdefault(process_id, []).append(line)
 
                 output = "".join(_process_outputs.get(process_id, [])[-50:]) or "(no output)"
                 if clear and process_id in _process_outputs:
@@ -181,7 +196,7 @@ class ProcessTool(ToolBase):
 
                 return ToolOutput(
                     text=output[:4000],
-                    title=f"📄 Output [{process_id}]",
+                    title=f"\U0001f4c4 Output [{process_id}]",
                     metadata={"process_id": process_id},
                 )
 
@@ -264,6 +279,7 @@ class WatchTool(ToolBase):
     name = "Watch"
     description = "Watch a file or path for a condition (exists, changed, contains, deleted), then wait for it."
     aliases = ["WaitFor", "Poll"]
+    timeout_sec = 310.0
     parameters = {
         "op": {
             "type": "string",

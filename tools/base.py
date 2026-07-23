@@ -5,6 +5,8 @@ auto-registration, alias resolution, and rich output.
 
 from __future__ import annotations
 
+import os
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -39,6 +41,7 @@ class ToolBase(ABC):
     aliases: list[str] = []  # Alternative names
     permission_level = "NORMAL"  # ALWAYS_ALLOW, NORMAL, REQUIRES_APPROVAL, BLOCKED
     tracks_files: bool = False  # If True, checkpoint snapshots are taken
+    timeout_sec: float | None = None  # Per-tool timeout override (None = use global default)
 
     @abstractmethod
     async def execute(self, **kwargs) -> ToolOutput: ...

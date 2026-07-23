@@ -133,6 +133,7 @@ class BashTool(ToolBase):
     name = "Bash"
     description = "Execute a shell command and return its output. Use for dev tasks, file ops, package installs, git, etc."
     aliases = ["Shell", "Cmd", "Run"]
+    timeout_sec = 620.0
     parameters = {
         "command": {"type": "string", "description": "The shell command to execute"},
         "description": {
@@ -249,6 +250,7 @@ class PowerShellTool(ToolBase):
     name = "PowerShell"
     description = "Execute a PowerShell command and return its output."
     aliases = ["PS", "Pwsh"]
+    timeout_sec = 620.0
     parameters = {
         "command": {
             "type": "string",

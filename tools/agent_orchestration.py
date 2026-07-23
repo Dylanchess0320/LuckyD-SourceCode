@@ -71,6 +71,7 @@ class AgentHandoffTool(ToolBase):
     name = "AgentHandoff"
     description = "Hand off a subtask to a specialist agent. Use: researcher (web search, docs), coder (implement), reviewer (audit), tester (test). Chain: researcher → coder → reviewer."
     aliases = ["Handoff", "DelegateTo"]
+    timeout_sec = 600.0
     parameters = {
         "role": {
             "type": "string",
@@ -123,6 +124,7 @@ class TeamCreateTool(ToolBase):
     name = "TeamCreate"
     description = "Create a multi-agent swarm team that works in parallel. Each agent gets a name, role, and task. They run simultaneously."
     aliases = ["Swarm", "ParallelAgents"]
+    timeout_sec = 900.0
     parameters = {
         "team_name": {
             "type": "string",

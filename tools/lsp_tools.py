@@ -5,6 +5,7 @@ Uses jedi-language-server or pylsp for Python files.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from pathlib import Path
 
@@ -45,8 +46,7 @@ class LspDefinitionTool(ToolBase):
                 return ToolOutput(text=f"File not found: {file_path}", error=True)
 
             source = path.read_text()
-            script = jedi.Script(code=source, path=str(path))
-            results = script.goto(line=line, column=character)
+            results = await asyncio.to_thread(lambda: jedi.Script(code=source, path=str(path)).goto(line=line, column=character))
 
             if not results:
                 return ToolOutput(text="No definition found.", title="Go to Definition")
@@ -84,8 +84,7 @@ class LspReferencesTool(ToolBase):
             jedi = _get_jedi()
             path = _resolve_path(file_path)
             source = path.read_text()
-            script = jedi.Script(code=source, path=str(path))
-            results = script.get_references(line=line, column=character)
+            results = await asyncio.to_thread(lambda: jedi.Script(code=source, path=str(path)).get_references(line=line, column=character))
 
             if not results:
                 return ToolOutput(text="No references found.", title="Find References")
@@ -220,8 +219,7 @@ class LspDocumentSymbolsTool(ToolBase):
             jedi = _get_jedi()
             path = _resolve_path(file_path)
             source = path.read_text()
-            script = jedi.Script(code=source, path=str(path))
-            names = script.get_names(all_scopes=True, definitions=True)
+            names = await asyncio.to_thread(lambda: jedi.Script(code=source, path=str(path)).get_names(all_scopes=True, definitions=True))
 
             parts = []
             for n in names:
@@ -354,8 +352,7 @@ class LspIncomingCallsTool(ToolBase):
             jedi = _get_jedi()
             path = _resolve_path(file_path)
             source = path.read_text()
-            script = jedi.Script(code=source, path=str(path))
-            results = script.goto(line=line, column=character)
+            results = await asyncio.to_thread(lambda: jedi.Script(code=source, path=str(path)).goto(line=line, column=character))
 
             if not results:
                 return ToolOutput(text="No callers found.", title="Callers")

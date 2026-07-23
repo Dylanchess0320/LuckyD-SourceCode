@@ -1,5 +1,5 @@
 """
-Agent loop — the main agent execution loop.
+Agent loop â€” the main agent execution loop.
 Replaces agent.py's run() method with a modular architecture using:
 - core/llm_client.py for LLM API calls
 - core/message_builder.py for system prompt construction
@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import os
 import traceback
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -221,19 +222,23 @@ class CodingAgent:
             except Exception as e:
                 print(f"\n  [HOOK ERR] before_tool hook failed: {e}")
 
-        # Execute the tool
+        # Execute the tool with a real timeout (per-tool override | global default)
+        DEFAULT_TOOL_TIMEOUT = float(os.environ.get("CODING_AGENT_TOOL_TIMEOUT", "180"))
+        tool_timeout = getattr(tool, "timeout_sec", None)
+        if tool_timeout is None:
+            tool_timeout = DEFAULT_TOOL_TIMEOUT
         try:
             clean_args = {k: v for k, v in tool_args.items() if not k.startswith("_")}
-            result = await tool.execute(**clean_args)
-        except TypeError as e:
-            result_text = f"Tool argument error: {e}\nExpected: {json.dumps(tool.parameters)}"
-            return {"role": "tool", "tool_call_id": call_id, "content": result_text}
+            result = await asyncio.wait_for(tool.execute(**clean_args), timeout=tool_timeout)
         except asyncio.TimeoutError:
             return {
                 "role": "tool",
                 "tool_call_id": call_id,
-                "content": "Tool execution timed out after 60s.",
+                "content": f"Tool execution timed out after {tool_timeout:.0f}s.",
             }
+        except TypeError as e:
+            result_text = f"Tool argument error: {e}\nExpected: {json.dumps(tool.parameters)}"
+            return {"role": "tool", "tool_call_id": call_id, "content": result_text}
         except Exception as e:
             traceback.print_exc()
             return {
@@ -331,7 +336,7 @@ class CodingAgent:
             pass
 
     async def _call_llm_for_extraction(self, messages: list[dict]) -> dict | None:
-        """Simple LLM call for memory extraction — non-streaming, minimal retry."""
+        """Simple LLM call for memory extraction â€” non-streaming, minimal retry."""
         url = f"{self.base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         payload = {
@@ -509,7 +514,7 @@ class CodingAgent:
                 content_preview = result_msg["content"][:100].replace("\n", " ")
                 is_err = result_msg["content"].startswith("Error")
                 status = "[ERR]" if is_err else "[OK]"
-                print(f"  {status} [{tool_name}] {elapsed:.1f}s — {content_preview}")
+                print(f"  {status} [{tool_name}] {elapsed:.1f}s â€” {content_preview}")
                 self._emit_event(
                     AgentEventType.TOOL_END if not is_err else AgentEventType.TOOL_ERROR,
                     {"tool": tool_name, "elapsed": elapsed, "error": is_err},
@@ -617,3 +622,4 @@ class CodingAgent:
         from core.hooks import reset_hooks
 
         reset_hooks()
+

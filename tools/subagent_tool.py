@@ -13,6 +13,7 @@ class SubAgentTool(ToolBase):
     name = "SubAgent"
     description = "Spawn a child agent to work independently on a focused subtask."
     aliases = ["Delegate", "SpawnAgent"]
+    timeout_sec = 900.0
     parameters = {
         "task": {"type": "string", "description": "The task for the sub-agent to complete"},
         "max_turns": {"type": "integer", "description": "Max turns for the sub-agent (default: 5)"},

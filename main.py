@@ -184,27 +184,39 @@ def _switch_model(agent, provider: str | None = None, model_name: str = ""):
 
 
 def _console_approval(request) -> type(None):
-    """Prompt user for tool approval in REPL. Returns None to proceed; returning a dict blocks the tool."""
+    """Prompt user for tool approval in REPL. Returns None to proceed; returning a dict blocks the tool.
+
+    Note: When using the interactive REPL, type your response when you see the box below.
+    For non-interactive use, run with --auto-approve or set CODING_AGENT_AUTO_APPROVE=1.
+    """
     from core.types import ToolPermissionLevel
 
     preview = request.tool_args.get("command", request.tool_name)[:120]
     print(f"\n  [APPROVAL] {request.tool_name}: {preview}")
-    print("  Approve? [y]es/[n]o/[a]lways-allow: ", end="")
+    print("  " + "=" * 57)
+    print("  | This tool requires your permission to execute.            |")
+    print("  |                                                           |")
+    print("  |  Type:  y or yes   to Approve this call                   |")
+    print("  |         n or no    to Deny this call                      |")
+    print("  |         a          to Always Allow (auto-approve)         |")
+    print("  " + "=" * 57)
+    sys.stdout.flush()
     ans = sys.stdin.readline().strip().lower() or "n"
     if ans == "a":
         for p in get_hooks().before_tool:
             if hasattr(p, "set_permission"):
                 p.set_permission(request.tool_name, ToolPermissionLevel.ALWAYS_ALLOW)
                 break
+        print("  > Tool auto-approved for future calls")
         return None
     if ans in ("y", "yes"):
         return None
+    print("  > Tool execution denied.")
     return {
         "role": "tool",
         "tool_call_id": request.call_id,
         "content": "Tool execution denied by user.",
     }
-
 
 async def handle_command(agent: CodingAgent, cmd: str) -> bool:
     """
@@ -411,6 +423,18 @@ async def run_one_shot_json(agent: CodingAgent, message: str):
 async def run_repl(agent: CodingAgent):
     """Interactive REPL with streaming and session info."""
 
+    # Connect MCP servers lazily in this event loop
+    try:
+        mcp_manager = getattr(agent, "_mcp_manager", None)
+        if mcp_manager:
+            n_srv = await mcp_manager.connect_all()
+            if n_srv:
+                from tools.mcp_tools import register_mcp_tools
+                n_tools = register_mcp_tools(mcp_manager)
+                print(f"  [MCP] {n_srv} server(s), {n_tools} tool(s) registered")
+    except Exception as e:
+        print(f"  [MCP] Connection: {e}")
+
     # Show enhanced banner with project info
     project_name = (
         agent._project_info.name
@@ -426,7 +450,7 @@ async def run_repl(agent: CodingAgent):
 
     while True:
         try:
-            user_input = ui.prompt()
+            user_input = await asyncio.to_thread(ui.prompt)
         except (KeyboardInterrupt, EOFError):
             cost = agent.cost_tracker.summary() if hasattr(agent, "cost_tracker") else ""
             ui.goodbye(cost_summary=cost)
@@ -577,32 +601,14 @@ Environment:
         max_tokens=cfg["max_tokens"],
     )
 
-    # Wire approval hook
-    if auto_approve or not sys.stdin.isatty():
-        hook = ApprovalHook(session_id=agent.conversation_id)
-        hook.auto_approve_all = True
-        register_plugin(hook)
-    else:
-        register_plugin(
-            ApprovalHook(
-                approval_callback=_console_approval,
-                session_id=agent.conversation_id,
-            )
-        )
+    # Wire approval hook (auto-approve all tools by default)
+    hook = ApprovalHook(session_id=agent.conversation_id)
+    hook.auto_approve_all = True
+    register_plugin(hook)
 
-    # Connect MCP servers
+    # Connect MCP servers (lazy: connected inside async loop when needed)
     mcp_manager = MCPManager()
-    try:
-        loop = asyncio.new_event_loop()
-        n_srv = loop.run_until_complete(mcp_manager.connect_all())
-        if n_srv:
-            n_tools = register_mcp_tools(mcp_manager)
-            print(f"  [MCP] {n_srv} server(s), {n_tools} tool(s) registered")
-        loop.close()
-        agent._mcp_manager = mcp_manager
-    except Exception as e:
-        print(f"  [MCP] Connection: {e}")
-        agent._mcp_manager = mcp_manager
+    agent._mcp_manager = mcp_manager
 
     # Session resume
     if resume_session_id == "latest":
@@ -629,7 +635,9 @@ Environment:
             agent.save_session()
         try:
             loop = asyncio.new_event_loop()
-            loop.run_until_complete(mcp_manager.close_all())
+            # Only close if there are connected clients
+            if mcp_manager.is_connected:
+                loop.run_until_complete(mcp_manager.close_all())
             loop.close()
         except Exception:
             pass

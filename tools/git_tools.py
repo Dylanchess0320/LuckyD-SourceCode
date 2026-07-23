@@ -20,7 +20,7 @@ async def _run_git(args: list[str], cwd: str = ".") -> tuple[int, str, str]:
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
         )
-        stdout, stderr = await proc.communicate()
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60.0)
         return (
             proc.returncode or 0,
             stdout.decode("utf-8", errors="replace"),
@@ -180,7 +180,7 @@ class GitPR(ToolBase):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await proc.communicate()
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60.0)
             out = stdout.decode("utf-8", errors="replace")
             err = stderr.decode("utf-8", errors="replace")
             if proc.returncode != 0:
