@@ -67,20 +67,25 @@ def truncate_messages(
                     msg["content"] = content[:max_assistant_chars] + "\n... [truncated]"
         return messages
 
-    system_count = sum(1 for m in messages if m.get("role") == "system")
-    keep = min(keep_recent, len(messages) - system_count)
+    # Keep only leading system messages (the actual prompt).
+    # System messages can appear mid-history (memory refreshes, hints),
+    # so counting all of them and slicing messages[:count] scrambles history.
+    sys_end = 0
+    while sys_end < len(messages) and messages[sys_end].get("role") == "system":
+        sys_end += 1
+
+    keep = min(keep_recent, len(messages) - sys_end)
     start_idx = len(messages) - keep
 
-    while start_idx > 0 and messages[start_idx].get("role") == "tool":
+    # Never split a tool_calls/tool pair at the boundary
+    while start_idx > sys_end and messages[start_idx].get("role") == "tool":
         start_idx -= 1
-        keep += 1
-    if start_idx > 0:
+    if start_idx > sys_end:
         prev = messages[start_idx - 1]
         if prev.get("role") == "assistant" and prev.get("tool_calls"):
             start_idx -= 1
-            keep += 1
 
-    return messages[:system_count] + [
+    return messages[:sys_end] + [
         {"role": "system", "content": "[Context truncated — keeping most recent messages only]"}
     ] + messages[start_idx:]
 

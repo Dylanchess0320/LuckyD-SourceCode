@@ -5,6 +5,7 @@ Safe command execution tool with sandboxing, timeout, and output capture.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 import os
 import platform
@@ -115,6 +116,10 @@ class BashTool(ToolBase):
                 proc.communicate(), timeout=timeout_sec
             )
         except asyncio.TimeoutError:
+            # Kill the runaway process so it does not leak
+            with contextlib.suppress(Exception):
+                proc.kill()
+                await asyncio.wait_for(proc.wait(), timeout=5)
             return ToolOutput(
                 text=f"Command timed out after {timeout_sec:.0f}s",
                 error=True,
@@ -178,6 +183,10 @@ class PowerShellTool(ToolBase):
                 proc.communicate(), timeout=timeout_sec
             )
         except asyncio.TimeoutError:
+            # Kill the runaway process so it does not leak
+            with contextlib.suppress(Exception):
+                proc.kill()
+                await asyncio.wait_for(proc.wait(), timeout=5)
             return ToolOutput(text="PowerShell command timed out", error=True)
 
         out = stdout.decode("utf-8", errors="replace")[:12000]

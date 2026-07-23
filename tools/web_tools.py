@@ -4,6 +4,8 @@ HTTP request tool, web fetch, and web search integration.
 
 from __future__ import annotations
 
+import asyncio
+
 import json
 import urllib.request
 import urllib.error
@@ -36,6 +38,28 @@ class HttpTool(ToolBase):
         bearer_token: str = "",
         timeout_sec: int = 30,
     ) -> ToolOutput:
+        timeout = min(timeout_sec, 120)
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(
+                    self._do_request, url, method, headers, json_body, bearer_token, timeout
+                ),
+                timeout=timeout + 5,
+            )
+        except asyncio.TimeoutError:
+            return ToolOutput(text="HTTP request timed out after " + str(timeout) + "s", error=True)
+        except Exception as e:
+            return ToolOutput(text="HTTP error: {0}".format(e), error=True)
+
+    def _do_request(
+        self,
+        url: str,
+        method: str,
+        headers: dict | None,
+        json_body: dict | None,
+        bearer_token: str,
+        timeout: int,
+    ) -> ToolOutput:
         try:
             req_headers = headers or {}
             if bearer_token:
@@ -50,7 +74,6 @@ class HttpTool(ToolBase):
             for k, v in req_headers.items():
                 req.add_header(k, v)
 
-            timeout = min(timeout_sec, 120)
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
                 status = resp.status
@@ -68,7 +91,7 @@ class HttpTool(ToolBase):
 
             return ToolOutput(
                 text=body,
-                title=f"HTTP {method.upper()} {url} → {status}",
+                title="HTTP " + method.upper() + " " + url + " -> " + str(status),
                 metadata={"status_code": status, "method": method, "url": url},
                 error=status >= 400,
             )
@@ -76,13 +99,12 @@ class HttpTool(ToolBase):
             body = e.read().decode("utf-8", errors="replace")[:2000]
             return ToolOutput(
                 text=body,
-                title=f"HTTP {method.upper()} {url} → {e.code}",
+                title="HTTP " + method.upper() + " " + url + " -> " + str(e.code),
                 metadata={"status_code": e.code},
                 error=True,
             )
         except Exception as e:
-            return ToolOutput(text=f"HTTP error: {e}", error=True)
-
+            return ToolOutput(text="HTTP error: {0}".format(e), error=True)
 
 class WebFetchTool(ToolBase):
     name = "WebFetch"
@@ -93,6 +115,18 @@ class WebFetchTool(ToolBase):
     }
 
     async def execute(self, url: str) -> ToolOutput:
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(self._do_fetch, url),
+                timeout=35,
+            )
+        except asyncio.TimeoutError:
+            return ToolOutput(text="Fetch timed out after 30s", error=True)
+        except Exception as e:
+            return ToolOutput(text="Fetch error: {0}".format(e), error=True)
+
+    @staticmethod
+    def _do_fetch(url: str) -> ToolOutput:
         try:
             req = urllib.request.Request(
                 url,
@@ -122,15 +156,13 @@ class WebFetchTool(ToolBase):
 
             return ToolOutput(
                 text=text,
-                title=f"Fetched {url}",
+                title="Fetched " + url,
                 metadata={"url": url, "chars": len(text)},
             )
         except urllib.error.HTTPError as e:
-            return ToolOutput(text=f"HTTP {e.code}: {e.reason}", error=True)
+            return ToolOutput(text="HTTP {0}: {1}".format(e.code, e.reason), error=True)
         except Exception as e:
-            return ToolOutput(text=f"Fetch error: {e}", error=True)
-
-
+            return ToolOutput(text="Fetch error: {0}".format(e), error=True)
 class WebSearchTool(ToolBase):
     name = "WebSearch"
     description = "Search the web and get results. Uses DuckDuckGo's free API."
@@ -142,10 +174,10 @@ class WebSearchTool(ToolBase):
     async def execute(self, query: str) -> ToolOutput:
         # Try the official duckduckgo_search library first, then fall back to scraping
         try:
-            return await self._search_ddg_library(query)
+            return await asyncio.wait_for(self._search_ddg_library(query), timeout=20)
         except Exception as e1:
             try:
-                return await self._search_ddg_html(query)
+                return await asyncio.wait_for(self._search_ddg_html(query), timeout=20)
             except Exception as e2:
                 return ToolOutput(
                     text=f"Search error (library: {e1})\n(fallback: {e2})\n\nTry a different query or use WebFetch directly.",

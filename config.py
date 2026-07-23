@@ -33,14 +33,20 @@ for d in [DATA_DIR, MEMORY_DIR, TASKS_DIR, WORKSPACE_DIR, CHECKPOINTS_DIR, SKILL
 
 
 def load_env() -> None:
+    """Load .env -- .env values override any stale pre-existing env vars.
+    Uses utf-8-sig to safely strip a leading BOM.
+    """
     if not ENV_FILE.exists():
         return
-    for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+    raw = ENV_FILE.read_text(encoding="utf-8-sig")
+    for line in raw.splitlines():
         line = line.strip()
-        if line and not line.startswith("#") and "=" in line:
-            key, _, val = line.partition("=")
-            if key not in os.environ:
-                os.environ[key] = val.strip().strip('"').strip("'")
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")
+        os.environ[key] = val
 
 
 load_env()

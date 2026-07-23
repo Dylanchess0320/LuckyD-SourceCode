@@ -55,7 +55,7 @@ RULES:
 - Extract patterns in how the user works
 - DON'T extract: generic conversation, code snippets, temporary state
 - DON'T extract: facts already obvious from the codebase itself
-- Return ONLY the JSON array, nothing else.
+- Return ONLY a JSON object like {"memories": [...]}, nothing else.
 """
 
 class CodingAgent:
@@ -97,6 +97,7 @@ class CodingAgent:
         self._last_memory_refresh_turn = 0
         self._memory_context: str = ""
         self._last_extraction_msg_count = 0
+        self._background_tasks: set = set()
 
         # Provider routing
         from llm import LLMConfig, ProviderRouter
@@ -197,7 +198,7 @@ class CodingAgent:
         ctx = HookContext(turn=self.turn_count, messages=self.messages)
         for hook in self.hooks.before_tool:
             try:
-                result = hook(tool_name, tool_args, ctx)
+                result = await asyncio.to_thread(hook, tool_name, tool_args, ctx)
                 if result is not None:
                     return result  # Hook intercepted/blocked the tool
             except Exception as e:
@@ -227,7 +228,7 @@ class CodingAgent:
         # Run after_tool hooks
         for hook in self.hooks.after_tool:
             try:
-                modified = hook(tool_name, tool_args, tool_result_msg, ctx)
+                modified = await asyncio.to_thread(hook, tool_name, tool_args, tool_result_msg, ctx)
                 if modified is not None:
                     tool_result_msg = modified
             except Exception as e:
@@ -261,7 +262,7 @@ class CodingAgent:
         transcript = "\n".join(transcript_lines[-40:])
         extraction_messages = [
             {"role": "system", "content": MEMORY_EXTRACTION_PROMPT},
-            {"role": "user", "content": f"Conversation transcript:\n\n{transcript}\n\nExtract memories (JSON array only):"},
+            {"role": "user", "content": f"Conversation transcript:\n\n{transcript}\n\nExtract memories (JSON object only):"},
         ]
 
         try:
@@ -275,6 +276,9 @@ class CodingAgent:
                     content = content[:-3]
             content = content.strip()
             memories = json.loads(content)
+            # json_object mode returns an object -- accept both
+            if isinstance(memories, dict):
+                memories = memories.get("memories", [])
             if not isinstance(memories, list):
                 return
             stored = 0
@@ -286,7 +290,7 @@ class CodingAgent:
                     continue
                 category = mem.get("category", "general")
                 tags = mem.get("tags", [])
-                memory.add(
+                await asyncio.to_thread(memory.add,
                     content=f"[{category}] {mcontent}",
                     tags=[*tags, "extracted", category],
                     source=f"auto-extract-{self.conversation_id}",
@@ -332,7 +336,7 @@ class CodingAgent:
             self._last_memory_refresh_turn = 0
             try:
                 memory = get_memory()
-                memories = memory.get_context(user_message, limit=3)
+                memories = await asyncio.to_thread(memory.get_context, user_message, limit=3)
                 if memories and "(no relevant memories)" not in memories:
                     self._memory_context = memories
                     self.messages.append({
@@ -484,19 +488,12 @@ class CodingAgent:
                 if summary:
                     final_text = summary.get("content", "(timeout)")
 
-        # Store memories
-        try:
-            await self._extract_session_memories(user_message)
-            self._last_extraction_msg_count = len(self.messages)
-            memory = get_memory()
-            memory.add(
-                content=f"Conversation: {user_message[:200]}",
-                tags=["conversation", "auto"],
-                source="agent_run",
-            )
-        except Exception:
-            pass
-
+        # Extract long-term memories in the background (extra LLM call)
+        # so the user gets the prompt back immediately.
+        self._last_extraction_msg_count = len(self.messages)
+        task = asyncio.create_task(self._extract_session_memories(user_message))
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
         self._emit_event(AgentEventType.SESSION_END, {"final_text_length": len(final_text)})
         return final_text
 
@@ -505,13 +502,13 @@ class CodingAgent:
         if not self._last_memory_refresh_turn:
             return False
         try:
-            memory = get_memory()
+            memory = await asyncio.to_thread(get_memory)
             recent_text = " ".join(
                 m.get("content", "")[:200] for m in self.messages[-4:]
                 if m.get("role") in ("user", "tool")
             )
             query = f"{current_query} {recent_text}"[:500]
-            new_context = memory.get_context(query, limit=3)
+            new_context = await asyncio.to_thread(memory.get_context, query, 3)
             if new_context and new_context != self._memory_context and "(no relevant memories)" not in new_context:
                 self._memory_context = new_context
                 return True
@@ -556,5 +553,6 @@ class CodingAgent:
         self.conversation_id = datetime.now(timezone.utc).strftime("conv_%Y%m%d_%H%M%S")
         from core.hooks import reset_hooks
         reset_hooks()
+
 
 

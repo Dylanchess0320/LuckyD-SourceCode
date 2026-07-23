@@ -335,12 +335,16 @@ async def run_one_shot(agent: CodingAgent, message: str):
     agent.stream_callback = ui.stream_token
     agent.think_callback = ui.stream_think_token
     ui.start_streaming()
+    result = ""
     try:
-        await agent.run(message)
+        result = await agent.run(message)
     except Exception as e:
         ui.error(f"Agent error: {e}")
+        result = ""
     finally:
         ui.end_streaming()
+    if result and not ui.streamed_chars:
+        ui.markdown(result)
 
 
 async def run_one_shot_json(agent: CodingAgent, message: str):
@@ -351,15 +355,22 @@ async def run_one_shot_json(agent: CodingAgent, message: str):
     agent.think_callback = lambda token: (
         sys.stdout.write(json.dumps({"type": "thinking", "text": token}) + chr(10))
     )
+    result = ""
     try:
-        await agent.run(message)
-        json.dump({"type": "done"}, sys.stdout)
-        sys.stdout.write(chr(10))
+        result = await agent.run(message)
     except Exception as e:
         json.dump({"type": "error", "text": str(e)}, sys.stdout)
         sys.stdout.write(chr(10))
+        sys.stdout.flush()
+        return
     finally:
         sys.stdout.flush()
+    if result:
+        json.dump({"type": "result", "text": result[:100000]}, sys.stdout)
+        sys.stdout.write(chr(10))
+    json.dump({"type": "done"}, sys.stdout)
+    sys.stdout.write(chr(10))
+    sys.stdout.flush()
 
 async def run_repl(agent: CodingAgent):
     """Interactive REPL with streaming and session info."""
@@ -381,10 +392,9 @@ async def run_repl(agent: CodingAgent):
             ui.goodbye(cost_summary=cost)
             break
 
+        user_input = user_input.strip()
         if not user_input:
             continue
-
-        user_input = user_input.strip()
 
         # Slash commands
         if user_input.startswith("/"):
@@ -399,12 +409,16 @@ async def run_repl(agent: CodingAgent):
         agent.stream_callback = ui.stream_token
         agent.think_callback = ui.stream_think_token
         ui.start_streaming()
+        result = ""
         try:
-            await agent.run(user_input)
+            result = await agent.run(user_input)
         except Exception as e:
             ui.error(f"Agent error: {e}")
+            result = ""
         finally:
             ui.end_streaming()
+        if result and not ui.streamed_chars:
+            ui.markdown(result)
 
 
 # ── Entry point ────────────────────────────────────────────────────────

@@ -96,6 +96,9 @@ class LLMClient:
 
     @staticmethod
     def _log_payload_size(payload: dict):
+        import os
+        if not os.environ.get("CODING_AGENT_DEBUG"):
+            return
         msg_bytes = sum(len(json.dumps(m, ensure_ascii=False)) for m in payload.get("messages", []))
         tools_bytes = sum(len(json.dumps(t, ensure_ascii=False)) for t in payload.get("tools", []))
         total_bytes = sum(len(json.dumps(v, ensure_ascii=False)) for v in payload.values() if v is not None)
@@ -113,6 +116,8 @@ class LLMClient:
                 print(f"\n  [RETRY] HTTP {resp.status_code} in {delay:.1f}s ({attempt + 2}/{self.max_retries + 1})")
                 await asyncio.sleep(delay)
                 raise httpx.HTTPStatusError(f"Retryable {resp.status_code}", request=resp.request, response=resp)
+            if resp.status_code >= 400:
+                await resp.aread()
             resp.raise_for_status()
             return await self._read_stream(resp, stream_callback, think_callback)
 
@@ -187,7 +192,10 @@ class LLMClient:
             delay = self.base_delay * (2 ** attempt)
             print(f"\n  [RETRY] HTTP {e.response.status_code} in {delay:.1f}s ({attempt + 2}/{self.max_retries + 1})")
             return None
-        err_text = e.response.text[:500] if hasattr(e.response, 'text') else "(unknown)"
+        try:
+            err_text = e.response.text[:500]
+        except Exception:
+            err_text = "(unknown - response not read)"
         print(f"\n  [ERR] API Error ({e.response.status_code}): {err_text}")
         return {"role": "assistant", "content": f"[API Error: {e.response.status_code}]"}
 

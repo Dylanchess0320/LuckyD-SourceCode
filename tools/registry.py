@@ -48,7 +48,7 @@ class ToolRegistry:
         for name in sorted(self._tools.keys()):
             t = self._tools[name]
             aliases = f" (aliases: {', '.join(t.aliases)})" if t.aliases else ""
-            lines.append(f"- **{name}**{aliases}: {t.description}")
+            lines.append(f"- **{t.name}**{aliases}: {t.description}")
         return "\n".join(lines)
 
     @property

@@ -162,7 +162,7 @@ class TerminalUI:
             self._console.print()
             title = Text()
             title.append("  LuckyD Code", style=f"bold {BRAND['primary']}")
-            title.append("  v2.0", style=BRAND["muted"])
+            title.append("  v2.1.0", style=BRAND["muted"])
             self._console.print(title)
             if header:
                 self._console.print(f"  {self._dim(header)}")
@@ -170,7 +170,7 @@ class TerminalUI:
             self._console.print(f"  {self._dim(tip)}")
             self._console.print()
         else:
-            print(f"\n  {ANSI['bold']}{ANSI['cyan']}LuckyD Code{ANSI['reset']} {ANSI['dim']}v2.0{ANSI['reset']}")
+            print(f"\n  {ANSI['bold']}{ANSI['cyan']}LuckyD Code{ANSI['reset']} {ANSI['dim']}v2.1.0{ANSI['reset']}")
             if header:
                 print(f"  {ANSI['dim']}{header}{ANSI['reset']}")
             print(f"  {ANSI['dim']}{self._sep()}{ANSI['reset']}")
@@ -205,6 +205,12 @@ class TerminalUI:
             print(f"  {ANSI['dim']}{msg}{ANSI['reset']}")
 
     # ── Streaming ──────────────────────────────────────────────────
+    @property
+    def streamed_chars(self) -> int:
+        """How many characters were actually streamed (not counting thinking tokens)."""
+        return len(self._stream_buffer)
+
+
 
     def start_streaming(self) -> None:
         """Begin streaming a response (incremental plain text)."""
